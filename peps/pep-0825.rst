@@ -1095,6 +1095,12 @@ and Zanie Blue.
 Change History
 ==============
 
+- 11-May-2026
+
+  - Added replacing platform compatibility tags entirely to rejected
+    ideas.
+  - Clarified interpretation of sorting algorithm and index support.
+
 - 06-Apr-2026
 
   - Added a formal requirement that Python tags must not start with
