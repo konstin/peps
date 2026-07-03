@@ -6,7 +6,7 @@ Discussions-To: Pending
 Status: Draft
 Type: Standards Track
 Topic: Packaging
-Created: 22-Jun-2026
+Created: 06-Jul-2026
 Python-Version: 3.16
 Post-History: Pending
 
@@ -25,17 +25,22 @@ Motivation
 
 ``pyvenv.cfg``, as defined by :pep:`405`, only specifies the ``home``
 and ``include-system-site-packages`` keys. Different tools record different
-information about the Python version of a virtual environment:
+information about the Python version of a virtual environment. For a virtual
+environment created with Python 3.14.4 final:
 
 - CPython's :mod:`venv` module adds a ``version`` field as
-  ``'%d.%d.%d' % sys.version_info[:3]`` (`CPython source`_).
-- The ``virtualenv`` package adds ``version`` and ``version_info``
-  fields as ``".".join(str(i) for i in sys.version_info[:3])``
-  and ``".".join(str(i) for i in sys.version_info)``
-  (`virtualenv source`_). Notably, stable releases contain a
-  ``.final.0`` suffix.
+  ``'%d.%d.%d' % sys.version_info[:3]``
+  (`CPython source <https://github.com/python/cpython/blob/bc235304dfe5f018a87e1d73ca1ad2912f4ab999/Lib/venv/__init__.py#L234>`__).
+  Example: ``version = 3.14.4``.
+- The ``virtualenv`` package adds ``version_info`` and ``version`` fields as
+  ``".".join(str(i) for i in sys.version_info)`` and
+  ``".".join(str(i) for i in sys.version_info[:3])``
+  (`virtualenv source <https://github.com/pypa/virtualenv/blob/21.5.1/src/virtualenv/create/creator.py#L222-L227>`__).
+  Example: ``version_info = 3.14.4.final.0`` and ``version = 3.14.4``.
 - uv adds a ``version_info`` field based on
-  ``platform.python_version()`` (`uv source`_).
+  ``platform.python_version()``
+  (`uv source <https://github.com/astral-sh/uv/blob/7bbc01af54e8fd1d3c61d05b65f233574f7466da/crates/uv-virtualenv/src/virtualenv.rs#L531>`__).
+  Example: ``version_info = 3.14.4``.
 
 This information is used by a variety of tools, see :ref:`appendix`.
 
@@ -47,12 +52,13 @@ defined.
 Another problem is that the Python interpreter underneath the virtual
 environment may change. Linux distributions routinely update CPython patch
 versions as part of regular updates within a single distribution version. uv
-supports `upgrading existing Python installations`_,
+supports `upgrading existing Python installations <https://docs.astral.sh/uv/guides/install-python/#upgrading-python-versions>`__,
 upgrading virtual environments using the interpreter in the process. A
 ``version_info`` key in ``pyvenv.cfg`` with a patch version and a potential
 prerelease component goes stale in the process.
 
-Tools interacting with virtual environments can `break`_ when
+Tools interacting with virtual environments can `fail after a Python
+patch-version upgrade <https://github.com/astral-sh/uv/issues/19920>`__ when
 their assumptions about version granularity are violated. A standardized field
 with only major and minor version avoids this problem.
 
@@ -73,7 +79,7 @@ Rationale
 =========
 
 The ``python-version`` key is not yet used by any known tool (`GitHub code
-search`_), avoiding breakage in tools that read any of the existing keys. By
+search <https://github.com/search?q=path%3A**%2Fpyvenv.cfg%20python-version&type=code>`__), avoiding breakage in tools that read any of the existing keys. By
 specifying only the major and minor version, the value remains fresh even if
 the underlying Python interpreter is updated from one patch release to
 another.
@@ -101,7 +107,7 @@ How to Teach This
 =================
 
 A new specification page for ``pyvenv.cfg`` will be added to the `Python
-Packaging User Guide`_, including documentation for this field. The field is
+Packaging User Guide <https://packaging.python.org/>`__, including documentation for this field. The field is
 not user-facing.
 
 
@@ -119,57 +125,27 @@ Appendix: Existing Tool Behavior
 A non-exhaustive list of how tools parse version values:
 
 - **ty** splits the dotted value and parses only the major and minor
-  components, ignoring any remaining components (`ty source`_).
+  components, ignoring any remaining components
+  (`ty source <https://github.com/astral-sh/ruff/blob/1b011de418f1007a37fbe33f989a47bf99e2aa9f/crates/ty_site_packages/src/lib.rs#L789-L803>`__).
 - The **VS Code Python extension** parses both fields and
   separately handles virtualenv-style values such as ``3.9.0.final.0``.
   When both fields are present, it selects the most specific version
-  (`VS Code source`_).
+  (`VS Code source <https://github.com/microsoft/vscode-python/blob/34348154b5eac877eef60b5b838699c6cbaf58b6/src/client/pythonEnvironments/common/environmentManagers/simplevirtualenvs.ts#L123-L211>`__).
 - **Microsoft Python Environment Tools** requires at least three numeric
   components for both fields, then parses the first two components
-  (`Python Environment Tools source`_). Its uv-specific parser
-  stores only ``version_info`` (`Python Environment Tools uv source`_).
+  (`Python Environment Tools source <https://github.com/microsoft/python-environment-tools/blob/89bf1c02290e09413e745cbbb0194bc50491bf0d/crates/pet-core/src/pyvenv_cfg.rs#L10-L162>`__).
+  Its uv-specific parser stores only ``version_info``
+  (`Python Environment Tools uv source <https://github.com/microsoft/python-environment-tools/blob/89bf1c02290e09413e745cbbb0194bc50491bf0d/crates/pet-uv/src/lib.rs#L27-L60>`__).
 - **pre-commit** compares ``version_info`` with the ``sys.version_info``
   components joined by dots
-  (`pre-commit source`_, `health-check source`_).
-- **Jute** read ``version_info`` (`Jute source`_).
+  (`pre-commit source <https://github.com/pre-commit/pre-commit/blob/1553b465fd7ea42321ae0d04d1b41e706b89ae45/pre_commit/languages/python.py#L27-L33>`__,
+  `health-check source <https://github.com/pre-commit/pre-commit/blob/1553b465fd7ea42321ae0d04d1b41e706b89ae45/pre_commit/languages/python.py#L175-L211>`__).
+- **Jute** read ``version_info``
+  (`Jute source <https://github.com/ekzhang/jute/blob/18723a036b843d9efc1d07b326bda5614b2020e7/src-tauri/src/commands/venv.rs#L125-L165>`__).
 - **MediaHarbor** parses the first two components of ``version``
-  (`MediaHarbor source`_).
-- **Jac** parses the first two components of ``version`` (`Jac source`_).
-
-
-Footnotes
-=========
-
-.. _CPython source:
-   https://github.com/python/cpython/blob/bc235304dfe5f018a87e1d73ca1ad2912f4ab999/Lib/venv/__init__.py#L234
-.. _virtualenv source:
-   https://github.com/pypa/virtualenv/blob/d423ddcce98ad1c5b4529d2c9e947a7ccf09a968/src/virtualenv/create/creator.py#L226-L227
-.. _uv source:
-   https://github.com/astral-sh/uv/blob/7bbc01af54e8fd1d3c61d05b65f233574f7466da/crates/uv-virtualenv/src/virtualenv.rs#L531
-.. _upgrading existing Python installations:
-   https://docs.astral.sh/uv/guides/install-python/#upgrading-python-versions
-.. _break: https://github.com/astral-sh/uv/issues/19920
-.. _GitHub code search:
-   https://github.com/search?q=path%3A**%2Fpyvenv.cfg%20python-version&type=code
-.. _Python Packaging User Guide: https://packaging.python.org/
-.. _ty source:
-   https://github.com/astral-sh/ruff/blob/1b011de418f1007a37fbe33f989a47bf99e2aa9f/crates/ty_site_packages/src/lib.rs#L789-L803
-.. _VS Code source:
-   https://github.com/microsoft/vscode-python/blob/34348154b5eac877eef60b5b838699c6cbaf58b6/src/client/pythonEnvironments/common/environmentManagers/simplevirtualenvs.ts#L123-L211
-.. _Python Environment Tools source:
-   https://github.com/microsoft/python-environment-tools/blob/89bf1c02290e09413e745cbbb0194bc50491bf0d/crates/pet-core/src/pyvenv_cfg.rs#L10-L162
-.. _Python Environment Tools uv source:
-   https://github.com/microsoft/python-environment-tools/blob/89bf1c02290e09413e745cbbb0194bc50491bf0d/crates/pet-uv/src/lib.rs#L27-L60
-.. _pre-commit source:
-   https://github.com/pre-commit/pre-commit/blob/1553b465fd7ea42321ae0d04d1b41e706b89ae45/pre_commit/languages/python.py#L27-L33
-.. _health-check source:
-   https://github.com/pre-commit/pre-commit/blob/1553b465fd7ea42321ae0d04d1b41e706b89ae45/pre_commit/languages/python.py#L175-L211
-.. _Jute source:
-   https://github.com/ekzhang/jute/blob/18723a036b843d9efc1d07b326bda5614b2020e7/src-tauri/src/commands/venv.rs#L125-L165
-.. _MediaHarbor source:
-   https://github.com/MediaHarbor/mediaharbor/blob/0fe6810d3a348e238e7d5ed87f6c2a9b16510b85/src/core/src/venv_manager.rs#L174-L184
-.. _Jac source:
-   https://github.com/jaseci-labs/jaseci/blob/e7afd1d8253a940bca989b946a1569970f99f719/jac/jaclang/project/impl/dependencies.impl.jac#L437-L453
+  (`MediaHarbor source <https://github.com/MediaHarbor/mediaharbor/blob/0fe6810d3a348e238e7d5ed87f6c2a9b16510b85/src/core/src/venv_manager.rs#L174-L184>`__).
+- **Jac** parses the first two components of ``version``
+  (`Jac source <https://github.com/jaseci-labs/jaseci/blob/e7afd1d8253a940bca989b946a1569970f99f719/jac/jaclang/project/impl/dependencies.impl.jac#L437-L453>`__).
 
 
 Copyright
